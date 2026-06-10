@@ -11,6 +11,7 @@ export default function Home() {
   const [error, setError] = useState('');
   const { isSignedIn, user } = useUser();
   const [analyses, setAnalyses] = useState([]);
+  const [usageInfo, setUsageInfo] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
@@ -18,6 +19,9 @@ export default function Home() {
       fetch('/api/analyses')
         .then(r => r.json())
         .then(data => { if (Array.isArray(data)) setAnalyses(data); });
+      fetch('/api/usage')
+        .then(r => r.json())
+        .then(data => { if (data.limit) setUsageInfo(data); });
     }
   }, [isSignedIn]);
 
@@ -76,7 +80,7 @@ export default function Home() {
         });
         body = JSON.stringify({ pdfBase64: base64, anonymousId });
       } else {
-        body = JSON.stringify({ text: input, anonymousId });
+        body = JSON.stringify({ text: input, anonymousId, email: user?.primaryEmailAddress?.emailAddress });
       }
       const res = await fetch('/api/analyze', {
         method: 'POST',
@@ -127,8 +131,17 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>Leletem.hu – Orvosi lelet értelmező</title>
-        <meta name="description" content="Értsd meg az orvosi leletedet plain language-en, magyarul. AI-alapú lelet értelmező." />
+        <title>Leletem.hu – Orvosi lelet értelmező magyarul</title>
+        <meta name="description" content="Értsd meg az orvosi leletedet közérthető nyelven, magyarul. Labor eredmény értelmező – tudd meg mit jelentenek az értékeid és mikor fordulj orvoshoz." />
+        <meta name="keywords" content="orvosi lelet értelmező, labor eredmény magyarázat, vérkép értelmezés, magyar lelet értelmező, laborlelet mit jelent" />
+        <meta property="og:title" content="Leletem.hu – Orvosi lelet értelmező magyarul" />
+        <meta property="og:description" content="Értsd meg az orvosi leletedet közérthető nyelven. Labor eredmény értelmező magyarul – 30 másodperc alatt." />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://leletem.vercel.app" />
+        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:title" content="Leletem.hu – Orvosi lelet értelmező" />
+        <meta name="twitter:description" content="Értsd meg az orvosi leletedet közérthető nyelven, magyarul." />
+        <link rel="canonical" href="https://leletem.vercel.app" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
@@ -297,10 +310,24 @@ export default function Home() {
                 </div>
               )}
 
-              <button className="analyze-btn" onClick={analyze}>
-                <i className="ti ti-stethoscope" />
-                Értelmezd a leletemet
-              </button>
+              {isSignedIn && usageInfo && (
+                <div style={{fontSize:'12px',color:'var(--muted)',textAlign:'right',marginBottom:'.5rem'}}>
+                  {usageInfo.used} / {usageInfo.limit} elemzés felhasználva ebben a hónapban
+                </div>
+              )}
+              {!isSignedIn ? (
+                <SignUpButton mode="modal">
+                  <button className="analyze-btn">
+                    <i className="ti ti-user-plus" />
+                    Regisztrálj az elemzéshez – ingyenes
+                  </button>
+                </SignUpButton>
+              ) : (
+                <button className="analyze-btn" onClick={analyze}>
+                  <i className="ti ti-stethoscope" />
+                  Értelmezd a leletemet
+                </button>
+              )}
               {error && (
                 <div className="error-msg" style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'8px'}}>
                   <span>{error}</span>
