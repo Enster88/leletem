@@ -25,16 +25,24 @@ export default function Home() {
     'Összeállítjuk a magyarázatot...'
   ];
 
+  const [uploadedFile, setUploadedFile] = useState(null);
+
   const handleFile = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => { setInput(ev.target.result); setTab('text'); };
-    reader.readAsText(file);
+    if (file.type === 'application/pdf') {
+      setUploadedFile(file);
+      setInput('');
+    } else {
+      setUploadedFile(null);
+      const reader = new FileReader();
+      reader.onload = (ev) => { setInput(ev.target.result); setTab('text'); };
+      reader.readAsText(file);
+    }
   };
 
   const analyze = async () => {
-    if (!input.trim() || input.trim().length < 15) {
+    if (!uploadedFile && (!input.trim() || input.trim().length < 15)) {
       setError('Kérlek illessz be lelet szöveget!');
       return;
     }
@@ -48,10 +56,22 @@ export default function Home() {
     }, 2800);
 
     try {
+      let body;
+      if (uploadedFile && uploadedFile.type === 'application/pdf') {
+        const base64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result.split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(uploadedFile);
+        });
+        body = JSON.stringify({ pdfBase64: base64, anonymousId });
+      } else {
+        body = JSON.stringify({ text: input, anonymousId });
+      }
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: input, anonymousId })
+        body
       });
       const data = await res.json();
       if (data.error === 'limit_reached') {
@@ -239,11 +259,11 @@ export default function Home() {
               )}
 
               {tab === 'file' && (
-                <div className="upload-area">
-                  <input type="file" accept=".txt" onChange={handleFile} />
+                <div className="upload-area" style={uploadedFile ? {background:'var(--teal-light)',borderColor:'var(--teal-mid)'} : {}}>
+                  <input type="file" accept=".txt,.pdf" onChange={handleFile} />
                   <i className="ti ti-upload upload-icon" />
-                  <p>Húzd ide a fájlt, vagy kattints</p>
-                  <span>.txt fájl támogatott</span>
+                  {uploadedFile ? <p style={{color:'var(--teal)',fontWeight:'500'}}>✓ {uploadedFile.name}</p> : <p>Húzd ide a fájlt, vagy kattints</p>}
+                  <span>.txt és .pdf fájl támogatott – max. 10 MB</span>
                 </div>
               )}
 
