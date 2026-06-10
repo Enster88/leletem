@@ -120,10 +120,11 @@ Struktúra:
       "magyarazat": "Mit jelent közérthetően",
       "teendo": "Mit érdemes tenni"
     }
-  ]
+  ],
+  "kerdesek": ["Konkrét kérdés az orvosnak", "Másik kérdés", "Harmadik kérdés"]
 }
 
-3-7 leletet adj vissza. Mindent magyarul írj.`
+3-7 leletet adj vissza. A kerdesek mezőbe 3-4 konkrét, hasznos kérdést írj amit a páciens feltehet az orvosának. Mindent magyarul írj.`
           }
         ]
       }];
@@ -142,10 +143,11 @@ Struktúra:
       "magyarazat": "Mit jelent közérthetően",
       "teendo": "Mit érdemes tenni"
     }
-  ]
+  ],
+  "kerdesek": ["Konkrét kérdés az orvosnak", "Másik kérdés", "Harmadik kérdés"]
 }
 
-3-7 leletet adj vissza. Mindent magyarul írj.
+3-7 leletet adj vissza. A kerdesek mezőbe 3-4 konkrét, hasznos kérdést írj amit a páciens feltehet az orvosának az eredmények alapján. Mindent magyarul írj.
 
 Lelet:
 ${text.substring(0, 5000)}`

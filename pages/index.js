@@ -222,6 +222,11 @@ export default function Home() {
         .plan-features li i { color: var(--green); font-size: 14px; flex-shrink: 0; }
         .plan-note { font-size: 12px; color: #9CA3AF; }
         footer { padding: 2rem; text-align: center; font-size: 12px; color: #9CA3AF; border-top: 1px solid var(--border); }
+        .questions-box { background: var(--warm); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; margin-top: 1.25rem; }
+        .questions-box h4 { font-size: 14px; font-weight: 500; color: var(--teal); margin-bottom: .75rem; display: flex; align-items: center; gap: 6px; }
+        .questions-list { list-style: none; display: flex; flex-direction: column; gap: .5rem; }
+        .questions-list li { font-size: 13px; color: var(--muted); line-height: 1.6; display: flex; align-items: flex-start; gap: 8px; }
+        .questions-list li::before { content: '?'; font-weight: 600; color: var(--teal-mid); flex-shrink: 0; margin-top: 1px; }
         .history-section { max-width: 600px; margin: 0 auto 3rem; padding: 0 1rem; }
         .history-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
         .history-header h3 { font-family: 'Fraunces', serif; font-size: 20px; color: var(--teal); }
@@ -348,6 +353,14 @@ export default function Home() {
                   </div>
                 ))}
               </div>
+              {result.kerdesek && result.kerdesek.length > 0 && (
+                <div className="questions-box">
+                  <h4><i className="ti ti-messages" /> Kérdések az orvosonak</h4>
+                  <ul className="questions-list">
+                    {result.kerdesek.map((k, i) => <li key={i}>{k}</li>)}
+                  </ul>
+                </div>
+              )}
             </>
           )}
         </div>
