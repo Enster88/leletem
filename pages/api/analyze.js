@@ -92,7 +92,8 @@ export default async function handler(req, res) {
             `<li style="margin-bottom:6px;font-size:13px;color:#6B7280;">${k}</li>`
           ).join('');
 
-          await resend.emails.send({
+          console.log('Sending email to:', userData.email);
+          const emailResult = await resend.emails.send({
             from: 'onboarding@resend.dev',
             to: userData.email,
             subject: 'A lelet elemzésed eredménye',
@@ -115,6 +116,7 @@ export default async function handler(req, res) {
               </div>
             `
           });
+          console.log('Email result:', JSON.stringify(emailResult));
         }
       } catch(emailErr) {
         console.error('Email hiba:', emailErr);
