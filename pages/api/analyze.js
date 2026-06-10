@@ -60,6 +60,15 @@ export default async function handler(req, res) {
       await supabase.from('users').update({ usage_count: newCount, usage_month: monthKey }).eq('id', userId);
     }
 
+    // Mentjük az elemzést
+    if (userId && !result.error) {
+      await supabase.from('analyses').insert({
+        user_id: userId,
+        osszefoglalas: result.osszefoglalas,
+        leletek: result.leletek
+      });
+    }
+
     return res.status(200).json(result);
 
   } else {

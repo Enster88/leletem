@@ -10,6 +10,16 @@ export default function Home() {
   const [loadingText, setLoadingText] = useState('Elemezzük a leleted...');
   const [error, setError] = useState('');
   const { isSignedIn, user } = useUser();
+  const [analyses, setAnalyses] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+
+  useEffect(() => {
+    if (isSignedIn) {
+      fetch('/api/analyses')
+        .then(r => r.json())
+        .then(data => { if (Array.isArray(data)) setAnalyses(data); });
+    }
+  }, [isSignedIn]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -84,6 +94,12 @@ export default function Home() {
       clearInterval(interval);
       setResult(data);
       setState('results');
+      // Frissítjük az előzményeket
+      if (isSignedIn) {
+        fetch('/api/analyses')
+          .then(r => r.json())
+          .then(d => { if (Array.isArray(d)) setAnalyses(d); });
+      }
     } catch (e) {
       clearInterval(interval);
       setError(e.message || 'Hiba történt, kérlek próbáld újra.');
@@ -206,6 +222,15 @@ export default function Home() {
         .plan-features li i { color: var(--green); font-size: 14px; flex-shrink: 0; }
         .plan-note { font-size: 12px; color: #9CA3AF; }
         footer { padding: 2rem; text-align: center; font-size: 12px; color: #9CA3AF; border-top: 1px solid var(--border); }
+        .history-section { max-width: 600px; margin: 0 auto 3rem; padding: 0 1rem; }
+        .history-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+        .history-header h3 { font-family: 'Fraunces', serif; font-size: 20px; color: var(--teal); }
+        .history-toggle { font-size: 13px; color: var(--teal-mid); background: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; }
+        .history-item { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: .75rem; cursor: pointer; transition: border-color .15s; }
+        .history-item:hover { border-color: var(--teal-mid); }
+        .history-date { font-size: 11px; color: #9CA3AF; margin-bottom: .4rem; }
+        .history-summary { font-size: 13px; color: var(--muted); line-height: 1.5; }
+        .history-badges { display: flex; gap: 6px; margin-top: .5rem; flex-wrap: wrap; }
       `}</style>
 
       <nav>
@@ -343,6 +368,28 @@ export default function Home() {
           ))}
         </div>
       </section>
+
+      {isSignedIn && analyses.length > 0 && (
+        <div className="history-section">
+          <div className="history-header">
+            <h3>Korábbi elemzéseim</h3>
+            <button className="history-toggle" onClick={() => setShowHistory(!showHistory)}>
+              {showHistory ? 'Elrejtés' : `Megjelenítés (${analyses.length})`}
+            </button>
+          </div>
+          {showHistory && analyses.map(a => (
+            <div key={a.id} className="history-item" onClick={() => { setResult({osszefoglalas: a.osszefoglalas, leletek: a.leletek}); setState('results'); window.scrollTo({top: 0, behavior: 'smooth'}); }}>
+              <div className="history-date">{new Date(a.created_at).toLocaleDateString('hu-HU', {year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+              <div className="history-summary">{a.osszefoglalas}</div>
+              <div className="history-badges">
+                {(a.leletek || []).filter(l => l.allapot === 'riaszto').length > 0 && <span className="badge badge-alert">{a.leletek.filter(l => l.allapot === 'riaszto').length} figyelmeztető</span>}
+                {(a.leletek || []).filter(l => l.allapot === 'figyelem').length > 0 && <span className="badge badge-warn">{a.leletek.filter(l => l.allapot === 'figyelem').length} figyelj rá</span>}
+                {(a.leletek || []).filter(l => l.allapot === 'ok').length > 0 && <span className="badge badge-ok">{a.leletek.filter(l => l.allapot === 'ok').length} normális</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <section className="pricing">
         <div className="pricing-inner">
