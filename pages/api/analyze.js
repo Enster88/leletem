@@ -1,4 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { Resend } from 'resend';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 import { getAuth } from '@clerk/nextjs/server';
 import { supabase } from '../../lib/supabase';
 
@@ -36,8 +39,9 @@ export default async function handler(req, res) {
       .single();
 
     if (!user) {
+      const { email } = req.body;
       await supabase.from('users').insert({
-        id: userId, is_premium: false, usage_count: 0, usage_month: monthKey
+        id: userId, is_premium: false, usage_count: 0, usage_month: monthKey, email: email || null
       });
       user = { is_premium: false, usage_count: 0, usage_month: monthKey };
     }
@@ -60,13 +64,61 @@ export default async function handler(req, res) {
       await supabase.from('users').update({ usage_count: newCount, usage_month: monthKey }).eq('id', userId);
     }
 
-    // Mentjük az elemzést
+    // Mentjük az elemzést és küldünk emailt
     if (userId && !result.error) {
       await supabase.from('analyses').insert({
         user_id: userId,
         osszefoglalas: result.osszefoglalas,
         leletek: result.leletek
       });
+
+      // Email küldése
+      try {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('email')
+          .eq('id', userId)
+          .single();
+
+        if (userData?.email) {
+          const findingRows = (result.leletek || []).map(f => {
+            const color = f.allapot === 'riaszto' ? '#991B1B' : f.allapot === 'figyelem' ? '#92400E' : '#15803D';
+            const bg = f.allapot === 'riaszto' ? '#FEE2E2' : f.allapot === 'figyelem' ? '#FEF3C7' : '#E8F7EF';
+            const label = f.allapot === 'riaszto' ? 'Kérdezd meg orvosodat' : f.allapot === 'figyelem' ? 'Figyelj rá' : 'Normális';
+            return `<tr><td style="padding:10px;border-bottom:1px solid #E5E0D8;"><span style="background:${bg};color:${color};font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500;">${label}</span> <strong>${f.nev}</strong><br><span style="font-size:13px;color:#6B7280;">${f.magyarazat}</span>${f.teendo ? `<br><span style="font-size:13px;color:#1B5E6E;font-weight:500;">→ ${f.teendo}</span>` : ''}</td></tr>`;
+          }).join('');
+
+          const questionRows = (result.kerdesek || []).map(k =>
+            `<li style="margin-bottom:6px;font-size:13px;color:#6B7280;">${k}</li>`
+          ).join('');
+
+          await resend.emails.send({
+            from: 'onboarding@resend.dev',
+            to: userData.email,
+            subject: 'A lelet elemzésed eredménye',
+            html: `
+              <div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;padding:2rem;">
+                <h1 style="font-family:Georgia,serif;color:#1B5E6E;font-size:28px;margin-bottom:.5rem;">leletem.hu</h1>
+                <p style="color:#6B7280;font-size:14px;margin-bottom:2rem;">Az elemzésed eredménye</p>
+                <div style="background:#E8F4F7;border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.5rem;font-size:14px;color:#1B5E6E;line-height:1.7;">
+                  ${result.osszefoglalas}
+                </div>
+                <table style="width:100%;border-collapse:collapse;margin-bottom:1.5rem;">
+                  ${findingRows}
+                </table>
+                ${result.kerdesek?.length ? `
+                <div style="background:#F8F6F2;border-radius:10px;padding:1rem 1.25rem;">
+                  <h4 style="font-size:14px;color:#1B5E6E;margin-bottom:.75rem;">Kérdések az orvosodnak</h4>
+                  <ul style="padding-left:1rem;">${questionRows}</ul>
+                </div>` : ''}
+                <p style="font-size:11px;color:#9CA3AF;margin-top:2rem;text-align:center;">Ez az oldal nem helyettesíti az orvosi tanácsadást. Fontos döntések előtt mindig konzultálj kezelőorvosoddal.</p>
+              </div>
+            `
+          });
+        }
+      } catch(emailErr) {
+        console.error('Email hiba:', emailErr);
+      }
     }
 
     return res.status(200).json(result);
