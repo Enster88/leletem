@@ -1,7 +1,5 @@
-import Stripe from 'stripe';
 import { supabase } from '../../lib/supabase';
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+import crypto from 'crypto';
 
 export const config = { api: { bodyParser: false } };
 
@@ -15,43 +13,49 @@ async function getRawBody(req) {
 }
 
 export default async function handler(req, res) {
-  console.log('WEBHOOK HIT - method:', req.method);
   if (req.method !== 'POST') return res.status(405).end();
 
   const rawBody = await getRawBody(req);
-  const sig = req.headers['stripe-signature'];
+  const secret = process.env.LEMONSQUEEZY_WEBHOOK_SECRET;
+
+  if (secret) {
+    const hmac = crypto.createHmac('sha256', secret);
+    const digest = hmac.update(rawBody).digest('hex');
+    const sig = req.headers['x-signature'];
+    if (sig !== digest) {
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+  }
 
   let event;
   try {
-    event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    event = JSON.parse(rawBody.toString());
   } catch (e) {
-    console.error('Webhook signature error:', e.message);
-    return res.status(400).json({ error: `Webhook error: ${e.message}` });
+    return res.status(400).json({ error: 'Invalid JSON' });
   }
 
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
-    const userId = session.metadata?.userId;
-    console.log('WEBHOOK checkout.session.completed - userId:', userId, '| metadata:', JSON.stringify(session.metadata));
-    const customerId = session.customer;
-    const subscriptionId = session.subscription;
+  const eventName = event.meta?.event_name;
+  const userId = event.meta?.custom_data?.user_id;
+  const subscriptionId = event.data?.id;
 
+  console.log('LS Webhook:', eventName, 'userId:', userId);
+
+  if (eventName === 'order_created' || eventName === 'subscription_created') {
     if (userId) {
       await supabase.from('users').upsert({
         id: userId,
         is_premium: true,
-        stripe_customer_id: customerId,
         stripe_subscription_id: subscriptionId,
       }, { onConflict: 'id' });
     }
   }
 
-  if (event.type === 'customer.subscription.deleted') {
-    const subscription = event.data.object;
-    await supabase
-      .from('users')
-      .update({ is_premium: false, stripe_subscription_id: null })
-      .eq('stripe_subscription_id', subscription.id);
+  if (eventName === 'subscription_cancelled' || eventName === 'subscription_expired') {
+    if (userId) {
+      await supabase.from('users')
+        .update({ is_premium: false })
+        .eq('id', userId);
+    }
   }
 
   res.status(200).json({ received: true });
