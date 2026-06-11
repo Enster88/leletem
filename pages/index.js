@@ -118,6 +118,7 @@ export default function Home() {
     try {
       const res = await fetch('/api/checkout', { method: 'POST' });
       const data = await res.json();
+      console.log('Checkout URL:', data.url);
       if (data.url) window.location.href = data.url;
     } catch (e) {
       setError('Hiba a fizetési oldal megnyitásakor.');
