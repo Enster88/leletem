@@ -4,37 +4,37 @@ import { lemonSqueezySetup, createCheckout } from '@lemonsqueezy/lemonsqueezy.js
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { userId, sessionClaims } = getAuth(req);
+  const { userId } = getAuth(req);
   if (!userId) return res.status(401).json({ error: 'Bejelentkezés szükséges.' });
 
-  lemonSqueezySetup({ apiKey: process.env.LEMONSQUEEZY_API_KEY });
+  const storeId = process.env.LEMONSQUEEZY_STORE_ID;
+  const variantId = process.env.LEMONSQUEEZY_VARIANT_ID;
+  const apiKey = process.env.LEMONSQUEEZY_API_KEY;
+
+  console.log('Store ID:', storeId);
+  console.log('Variant ID:', variantId);
+  console.log('API Key exists:', !!apiKey);
+
+  lemonSqueezySetup({ apiKey });
 
   try {
-    const email = sessionClaims?.email || '';
+    const checkout = await createCheckout(storeId, variantId, {
+      checkoutData: {
+        custom: { user_id: userId },
+      },
+      productOptions: {
+        redirectUrl: `${req.headers.origin}/?success=true`,
+      },
+    });
 
-    const checkout = await createCheckout(
-      process.env.LEMONSQUEEZY_STORE_ID,
-      process.env.LEMONSQUEEZY_VARIANT_ID,
-      {
-        checkoutOptions: {
-          embed: false,
-          media: false,
-        },
-        checkoutData: {
-          email,
-          custom: { user_id: userId },
-        },
-        productOptions: {
-          redirectUrl: `${req.headers.origin}/?success=true`,
-          receiptButtonText: 'Vissza az oldalra',
-          receiptThankYouNote: 'Köszönjük az előfizetést! Korlátlan elemzés vár rád.',
-        },
-      }
-    );
+    console.log('Checkout response:', JSON.stringify(checkout));
 
-    res.status(200).json({ url: checkout.data?.data?.attributes?.url });
+    const url = checkout.data?.data?.attributes?.url;
+    console.log('URL:', url);
+
+    res.status(200).json({ url });
   } catch (e) {
-    console.error('LS checkout error:', e);
-    res.status(500).json({ error: 'Hiba a fizetési oldal létrehozásakor.' });
+    console.error('LS checkout error:', e.message, e.cause);
+    res.status(500).json({ error: e.message });
   }
 }
